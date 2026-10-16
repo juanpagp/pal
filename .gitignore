@@ -2,3 +2,11 @@ bin/
 obj/
 artifacts/
 *.user
+
+# Local sample/test outputs (never part of the repository)
+*.ppm
+test-stdout.log
+test-stderr.log
+
+# Machine-specific environment overrides (never committed)
+scripts/env.local.sh
