@@ -204,4 +204,17 @@ internal static unsafe partial class Xlib
     [LibraryImport(LibraryName)]
     internal static partial nuint XkbKeycodeToKeysym(IntPtr display, byte keycode,
         uint group, uint level);
+
+    [LibraryImport(LibraryName)]
+    internal static partial byte XKeysymToKeycode(IntPtr display, nuint keysym);
+
+    // XSendEvent injects an event into a window's queue from outside; used
+    // by integration tests to deliver genuine key events through the real
+    // event pipeline (XPending/XNextEvent -> platform window -> App.Input).
+    [LibraryImport(LibraryName)]
+    internal static partial int XSendEvent(
+        IntPtr display, nuint window,
+        [MarshalAs(UnmanagedType.Bool)] bool propagate,
+        nint eventMask,
+        ref XEvent ev);
 }
