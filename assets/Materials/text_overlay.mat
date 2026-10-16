@@ -1,0 +1,32 @@
+//
+// PAL text overlay material.
+//
+// Unlit, alpha-blended, screen-space glyph quads:
+//   - atlas: glyph coverage atlas (RGBA8; RGB = white, A = coverage)
+//   - color: per-vertex COLOR attribute (float4) so every DrawText call can
+//     use its own color with a single shared material instance
+//
+// depthWrite/depthCulling are disabled so text composites over the 3D scene
+// (the overlay View itself is rendered with BlendMode::TRANSLUCENT).
+// Recompile with scripts/build-materials.sh (matc from the Filament SDK).
+//
+material {
+    name : pal_text_overlay,
+    parameters : [
+        { type : sampler2d, name : atlas }
+    ],
+    requires : [ position, uv0, color ],
+    shadingModel : unlit,
+    blending : transparent,
+    depthWrite : false,
+    depthCulling : false,
+    doubleSided : true
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        float4 c = texture(materialParams_atlas, getUV0());
+        material.baseColor = c * getColor();
+    }
+}

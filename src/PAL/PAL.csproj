@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Portable Applications Library: a practical, lightweight C# application and rendering framework on top of FilamentSharp (Google Filament). The application owns the loop; PAL owns the infrastructure.</Description>
+    <Authors> PAL contributors</Authors>
+    <Copyright>Copyright (c) 2026 PAL contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/juanpagp/pal</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>PAL</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+    <NoWarn>$(NoWarn);CA1012</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FilamentSharp" Version="1.0.0" />
+    <PackageReference Include="StbTrueTypeSharp" Version="1.26.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The matc-compiled text overlay material, embedded so Graphics can
+         load it without filesystem access (see assets/Materials/*.mat for
+         the source and scripts/build-materials.sh to recompile). -->
+    <EmbeddedResource Include="$(RepoRoot)assets/Materials/text_overlay.filamat"
+                      Link="Assets/text_overlay.filamat" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PAL.Tests" />
+    <InternalsVisibleTo Include="PAL.IntegrationTests" />
+  </ItemGroup>
+
+</Project>
