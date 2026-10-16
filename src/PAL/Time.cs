@@ -90,11 +90,17 @@ public sealed class Time
         DeltaTime = delta;
         FrameCount++;
 
-        int count = Math.Min(FrameCount, FpsSampleCount);
-        _recentDeltas[(FrameCount - 1) % FpsSampleCount] = delta;
-
+        // The FPS window measures intervals *between* pumps; the first
+        // frame's delta (construction -> first pump) is excluded so a
+        // near-zero construction delta cannot inflate the average.
         if (FrameCount >= 2)
         {
+            _recentDeltas[(FrameCount - 2) % FpsSampleCount] = delta;
+        }
+
+        if (FrameCount >= 3)
+        {
+            int count = Math.Min(FrameCount - 1, FpsSampleCount);
             float sum = 0.0f;
             for (int i = 0; i < count; i++)
             {

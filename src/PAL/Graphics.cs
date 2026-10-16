@@ -1,5 +1,6 @@
 using PAL.Platform;
 using System.Numerics;
+using System.Threading;
 using FilamentSharp;
 using PAL.Text;
 
@@ -46,6 +47,7 @@ public sealed class Graphics : IDisposable
     private int _height;
     private Color _clearColor = Color.FromBytes(10, 12, 20);
     private bool _clearColorApplied;
+    private bool _readbackPending;
     private bool _disposed;
 
     internal Graphics(Engine engine, Renderer renderer, View view,
@@ -152,8 +154,12 @@ public sealed class Graphics : IDisposable
     /// <param name="text">The text to draw; '\n' starts a new line, '\t' advances four spaces.</param>
     /// <param name="font">A font loaded from this graphics system.</param>
     /// <param name="position">
-    /// Top-left corner of the first line, in window pixels, origin at the
-    /// top-left of the frame (y grows down).
+    /// Top-left corner of the first line's line box, in window pixels,
+    /// origin at the top-left of the frame (y grows down). The baseline sits
+    /// <c>ascent</c> pixels below <paramref name="position"/>.Y — the CSS/
+    /// text-layout convention, so a fixed position is stable regardless of
+    /// which glyphs are drawn. <see cref="MeasureText"/> returns exactly the
+    /// box the text occupies from this corner.
     /// </param>
     /// <param name="pixelSize">Glyph height in pixels (rounded to whole pixels for caching).</param>
     /// <param name="color">Text color (sRGB authored; white over dark scenes works best).</param>
@@ -169,7 +175,9 @@ public sealed class Graphics : IDisposable
         Color color)
     {
         ThrowIfDisposed();
-        _textRenderer.DrawText(text, font, position, pixelSize, color);
+        // The current viewport height converts the top-left-origin position
+        // to the overlay camera's y-up space when quads are baked.
+        _textRenderer.DrawText(text, font, position, pixelSize, color, _height);
     }
 
     /// <summary>
@@ -232,6 +240,16 @@ public sealed class Graphics : IDisposable
 
         for (int frame = 0; frame < maxFrames; frame++)
         {
+            if (frame > 0)
+            {
+                // Yield between retry frames: a capture loop is an explicit
+                // render-until-done request, but spinning flat out starves
+                // the backend's present/retire threads on multi-threaded
+                // software drivers (observed: llvmpipe on 2-core hosts keeps
+                // returning backpressure forever without a yield). One
+                // millisecond lets presents retire; bounded by maxFrames.
+                Thread.Sleep(1);
+            }
             byte[]? pixels = RenderInternal(scene, camera, readback: true);
             if (pixels != null)
             {
@@ -283,9 +301,15 @@ public sealed class Graphics : IDisposable
         _renderer.Render(_view);
         _textRenderer.RenderOverlay(_renderer);
 
-        if (readback)
+        // Only one readback may be pending per renderer; when a retry frame
+        // runs while an earlier capture's readback is still in flight, keep
+        // waiting for the original (it belongs to the frame that had the
+        // content) instead of issuing a second request, which the backend
+        // rejects.
+        if (readback && !_readbackPending)
         {
             _renderer.ReadPixels(0, 0, (uint)_width, (uint)_height);
+            _readbackPending = true;
         }
 
         _renderer.EndFrame();
@@ -294,7 +318,12 @@ public sealed class Graphics : IDisposable
 
         if (readback)
         {
-            return _renderer.CompleteReadPixels();
+            var pixels = _renderer.CompleteReadPixels();
+            if (pixels != null)
+            {
+                _readbackPending = false;
+            }
+            return pixels;
         }
         return null;
     }

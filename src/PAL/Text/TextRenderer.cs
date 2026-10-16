@@ -89,7 +89,7 @@ internal sealed class TextRenderer : IDisposable
 
     /// <summary>Queues text for the current frame; see Graphics.DrawText.</summary>
     internal void DrawText(string text, Font font, Vector2 position, float pixelSize,
-        Color color)
+        Color color, int viewportHeight)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(text);
@@ -152,7 +152,7 @@ internal sealed class TextRenderer : IDisposable
             var glyph = cache.GetGlyph(codepoint);
             if (glyph.Rect != default)
             {
-                batch.EmitQuad(glyph, cache, penX, baselineY, vertexColor);
+                batch.EmitQuad(glyph, cache, penX, baselineY, vertexColor, viewportHeight);
             }
             penX += glyph.Advance;
         }
@@ -398,7 +398,7 @@ internal sealed class TextRenderer : IDisposable
         }
 
         internal void EmitQuad(Glyph glyph, GlyphCache cache, float penX,
-            float baselineY, in Vector4 color)
+            float baselineY, in Vector4 color, int viewportHeight)
         {
             if (QuadCount >= MaxCapacity)
             {
@@ -411,16 +411,26 @@ internal sealed class TextRenderer : IDisposable
             int atlasSize = _font.Atlas.Size;
             var rect = glyph.Rect;
 
-            // Top-left origin (y down) -> ortho pixel space (y up).
-            float top = baselineY - glyph.YOffset; // yoff is negative above baseline
+            // Top-left origin (y down) -> ortho pixel space (y up): the
+            // baseline arrives in window coordinates measured from the top,
+            // while the overlay camera's ortho projection is y-up from the
+            // bottom edge — flip the baseline around the viewport's bottom
+            // edge and derive the quad from there. The glyph's bitmap top
+            // stays above the baseline (yoff negative in y-down = up).
+            float baselineUp = viewportHeight - baselineY;
+            float top = baselineUp - glyph.YOffset; // yoff is negative above baseline
             float bottom = top - rect.Height;
             float left = penX + glyph.XOffset;
             float right = left + rect.Width;
 
             float u0 = (float)rect.X / atlasSize;
             float u1 = (float)(rect.X + rect.Width) / atlasSize;
-            float v0 = (float)rect.Y / atlasSize;                 // bitmap top row
-            float v1 = (float)(rect.Y + rect.Height) / atlasSize; // bitmap bottom row
+            // Filament's texture upload maps the buffer's row 0 to v = 1
+            // (the top in UV space): flip V so the glyph's top bitmap row
+            // is sampled by the quad's top edge (verified empirically on
+            // Vulkan — see docs/text-rendering.md, "Atlas orientation").
+            float v0 = 1.0f - (float)rect.Y / atlasSize;                 // bitmap top row
+            float v1 = 1.0f - (float)(rect.Y + rect.Height) / atlasSize; // bitmap bottom row
 
             int quadIndex = QuadCount;
 

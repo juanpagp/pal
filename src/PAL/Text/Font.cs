@@ -26,7 +26,7 @@ namespace PAL.Text;
 /// </remarks>
 public sealed class Font : IDisposable
 {
-    private readonly Engine _engine;
+    private readonly Engine? _engine;
     private readonly byte[] _data;
     private readonly GCHandle _pin; // stbtt points into _data
     private StbTrueType.stbtt_fontinfo _info;
@@ -34,9 +34,13 @@ public sealed class Font : IDisposable
     private readonly Dictionary<int, GlyphCache> _caches = new();
     private bool _disposed;
 
-    internal Font(Engine engine, byte[] ttfData)
+    /// <summary>
+    /// Creates a font. The engine may be null for CPU-only use (metrics,
+    /// measurement, glyph rasterization tests); drawing text with such a
+    /// font fails when the atlas first needs a texture.
+    /// </summary>
+    internal Font(Engine? engine, byte[] ttfData)
     {
-        ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(ttfData);
         if (ttfData.Length < 12)
         {

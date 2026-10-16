@@ -38,9 +38,13 @@ internal sealed class GlyphAtlas : IDisposable
     private int _rowHeight;
     private bool _dirty;
 
-    private readonly Engine _engine;
+    private readonly Engine? _engine;
 
-    internal GlyphAtlas(Engine engine)
+    /// <summary>
+    /// A CPU-only atlas (unit tests, measurement) is constructed with a null
+    /// engine; <see cref="EnsureTexture"/> throws in that case.
+    /// </summary>
+    internal GlyphAtlas(Engine? engine)
     {
         _engine = engine;
     }
@@ -135,6 +139,15 @@ internal sealed class GlyphAtlas : IDisposable
         if (_texture is { IsDisposed: false } texture && !_dirty)
         {
             return texture;
+        }
+
+        if (_engine is null)
+        {
+            throw new PALException(
+                "The glyph atlas has no Filament engine to create a texture from. " +
+                "CPU-only fonts (created without an engine) support measurement and " +
+                "rasterization, but not rendering; load fonts through Graphics.LoadFont " +
+                "to draw text.");
         }
 
         if (_texture is null || _texture.IsDisposed || _textureSize != _size)
